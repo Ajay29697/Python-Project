@@ -1,0 +1,214 @@
+import requests
+import json
+import time
+    
+tickers = ['AAPL', 'ADBE', 'BA', 'BRK-B', 'CMCSA', 'FB', 'GOOG', 'JPM', 'MSFT', 'V']
+
+def create_data():
+    for ticker in tickers:
+        url = 'http://www.alphavantage.co/query?function=TIME_SERIES_DAILY_ADJUSTED&symbol='+ticker+'&outputsize=full&apikey=NG9C9EPVYBMQT0C8'
+        request = requests.get(url)
+        time.sleep(12)
+        
+        rqst_dict = json.loads(request.text)
+        print('These are the daily stock prices for '+ticker)
+        
+        key_time = 'Time Series (Daily)'
+        key_close = '5. adjusted close'
+        
+        file = open('/home/ec2-user/environment/homework/Final_Project/data/' + ticker + '.csv', 'w')
+        
+        for date in rqst_dict[key_time]:
+            # print (date + ',' + rqst_dict[key_time][date][key_close])
+            file.write(date + ',' + rqst_dict[key_time][date][key_close] + '\n')
+        file.close()
+        
+        json.dump(rqst_dict, open('/home/ec2-user/environment/homework/Final_Project/data.json', 'w'), indent = 4)
+        
+create_data()
+
+def append_data():
+    for ticker in tickers:
+        url = 'http://www.alphavantage.co/query?function=TIME_SERIES_DAILY_ADJUSTED&symbol='+ticker+'&outputsize=year&apikey=NG9C9EPVYBMQT0C8'
+        request = requests.get(url)
+        time.sleep(12)
+        
+        rqst_dict = json.loads(request.text)
+        print('These are the daily stock prices for '+ticker)
+        
+        key_time = 'Time Series (Daily)'
+        key_close = '5. adjusted close'
+        
+        file = open('/home/ec2-user/environment/homework/Final_Project/data/' + ticker + '.csv', 'r')
+        
+        last_date = file.readlines().split(',')[0]
+        file.close()
+        
+        # Check for the last date in each csv file, and append the file as needed.
+
+results = {}
+window_size = 5
+
+def meanreversion(stock_prices):
+    total_profit = 0
+    buy = 0
+    first_buy = 0
+    moving_average = []
+
+    
+    print('\n-----------------Mean Reversion Strategy for', ticker,'-----------------')
+    
+    for i in range(len(stock_prices)):
+        if i >= 5:
+            moving_average = stock_prices[i:i + window_size]
+            avg_price = sum(moving_average)/window_size
+            moving_average.append(round(avg_price)) 
+            
+            current_price = stock_prices[i]
+        
+            if buy == 0 and current_price < (avg_price * 0.98):
+                if first_buy == 0:
+                    first_buy = current_price
+                buy = current_price
+                print("buy at : ", buy)
+
+            elif buy != 0 and current_price > (avg_price * 1.02):
+                trade_profit = round(float(current_price - buy),2)
+                print("Sell at :", current_price)
+                print("Trade profit :" , trade_profit, '\n')
+                total_profit += trade_profit
+                buy = 0
+            
+            else:
+                print("No sell or buy \n")
+                pass
+            
+        i += 1
+        
+    returns = (total_profit / first_buy) * 100
+    print('Mean Reversion total profit for', ticker, '>', '${:,.2f}'.format(total_profit))
+    print('Mean Reversion total returns for', ticker, '>', '{:,.2f}%'.format(returns))
+    return total_profit, returns
+
+
+def simplemovingaverage(stock_prices):
+    total_profit = 0
+    buy = 0
+    first_buy = 0
+    moving_average = []
+
+    
+    print('\n-----------------Simple Moving Average Strategy for', ticker,'-----------------')
+    
+    for i in range(len(stock_prices)):
+        if i >= 5:
+            moving_average = stock_prices[i:i + window_size]
+            avg_price = sum(moving_average)/window_size
+            moving_average.append(round(avg_price)) 
+            
+            current_price = stock_prices[i]
+        
+            if buy == 0 and current_price < avg_price:
+                if first_buy == 0:
+                    first_buy = current_price
+                buy = current_price
+                print("buy at : ", buy)
+
+            elif buy != 0 and current_price > avg_price:
+                trade_profit = round(float(current_price - buy),2)
+                print("Sell at :", current_price)
+                print("Trade profit :" , trade_profit, '\n')
+                total_profit = total_profit + trade_profit
+                buy = 0
+            
+            else:
+                print("No sell or buy \n")
+                pass
+            
+        i += 1
+        
+    returns = (total_profit / first_buy) * 100
+    print('Simple Moving Average total profit for', ticker, '>', '${:,.2f}'.format(total_profit))
+    print('Simple Moving Average returns for', ticker, '>', '{:,.2f}%'.format(returns))
+    return total_profit, returns
+    
+def bollingerbands(stock_prices):
+    total_profit = 0
+    first_buy = 0
+    price = 0
+    avg_price = 0
+    
+    print('\n----------------- Bollinger bangs Average Strategy', ticker,'-----------------')
+    
+    
+    for i in range(len(stock_prices)):
+    
+        if price > avg_price * 1.05:
+           print("BUY: Price is above moving average by more than 5%")
+        elif price < avg_price * .95:
+           print("SELL: Price is below moving average by more than 5%")
+        
+        i += 1
+        
+    returns = (total_profit / first_buy) * 100
+    print('Bollinger band Average total profit for', ticker, '>', '${:,.2f}'.format(total_profit))
+    print('Bollinger band Average returns for', ticker, '>', '{:,.2f}%'.format(returns))
+    return total_profit, returns
+   
+high = 0
+highest_stock = str()
+highest_strategy = str()
+highest_ticker = str()
+
+for ticker in tickers:
+    file = open("/home/ec2-user/environment/homework/Final_Project/" +ticker+ ".csv", "r")
+    lines = file.readlines()
+    stock_prices = []
+    
+    for line in lines:
+        stock_prices.append(round(float(line.split(',') [1]),2))
+        # moving_average = []
+    
+    total_profit, returns = meanreversion(stock_prices)
+    results[ticker + ' mean reversion profit:'] = '${:,.2f}'.format(total_profit)
+    results[ticker + ' mean reversion returns:'] = '{:,.2f}%'.format(returns)
+    
+    total_profit, returns = simplemovingaverage(stock_prices)
+    results[ticker + ' simple moving average profit:'] = '${:,.2f}'.format(total_profit)
+    results[ticker + ' simple moving average returns:'] = '{:,.2f}%'.format(returns)
+    
+    total_profit, returns = bollingerbands(stock_prices)
+    results[ticker + ' Bollingerband average profit:'] = '${:,.2f}'.format(total_profit)
+    results[ticker + ' Bollingerband average returns:'] = '{:,.2f}%'.format(returns)
+    
+    # Add an if statement to check which stock and strategy had the highest profit.
+    if high < total_profit:
+        high = total_profit
+        highest_stock = ticker
+        highest_strategy = 'Mean Reversion'
+    elif high < total_profit:
+        pass
+    elif high < total_profit:
+        pass
+    else:
+        high = high
+    
+    # Write the results into the results.json file.
+    with open('result.json','w') as f:
+        json.dump(results, f)
+    
+    results['Highest returns:'] = high
+    # write the highest ticker into the results.json file
+    with open('results.json', 'w') as f:
+        json.dump({'highest_ticker': highest_ticker}, f)
+    # write the highest strategy into the results.json file
+    with open('result.json', 'w') as f:
+        json.dump({'highest_strategy': highest_strategy}, f)
+def saveResults(results):
+    json.dump(results, open('/home/ec2-user/environment/homework/Final_Project/results.json', 'w'), indent = 4)  
+
+saveResults(results)
+
+input('hit enter.')
+
+print('You should buy this stock today using this strategy because it performed the best.')
